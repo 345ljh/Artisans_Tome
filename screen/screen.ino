@@ -75,10 +75,20 @@ void EnterDeepSleep(uint32_t sleepMinutes) {
 void Generate(){
   isGenerating = 1;
   // 生图
-  char img_url[512] = "https://45252e10a3b14cac99b4bd5d21c44b8d.apig.cn-north-4.huaweicloudapis.com/image_generation";
-  http.begin(img_url);
+  // char img_url[512] = "https://45252e10a3b14cac99b4bd5d21c44b8d.apig.cn-north-4.huaweicloudapis.com/image_generation";
+  String img_url = "https://45252e10a3b14cac99b4bd5d21c44b8d.apig.cn-north-4.huaweicloudapis.com/image_generation";
+  http.begin(img_url.c_str());
   while(httpCode <= 0){
-    httpCode = http.GET();
+    // 设置请求体参数
+    String jsonBody = "{";
+        jsonBody += "\"llm_model\":\"" + network.llm_model + "\",";
+        jsonBody += "\"llm_url\":\"" + network.llm_url + "\",";
+        jsonBody += "\"llm_key\":\"" + network.llm_key + "\",";
+        jsonBody += "\"img_key\":\"" + network.img_key + "\"";
+        jsonBody += "}";
+        
+    httpCode = http.POST(jsonBody);
+
     Serial.println(httpCode);  
     delay(500);
   }
@@ -123,7 +133,7 @@ void setup() {
   Serial.begin(115200);
 
   buffer = (uint8_t*)malloc(30000);
-  memset(buffer, 0, sizeof(30000));
+  memset(buffer, 0, 30000);
 
   network.Init();
   inkscreen.Init();

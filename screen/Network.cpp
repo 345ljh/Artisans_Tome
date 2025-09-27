@@ -28,14 +28,25 @@ const char* configPage = R"rawliteral(
         <input type="password" name="password" placeholder="WiFi密码" required>
         <button type="submit">连接并保存</button>
     </form>
-    
+
+    <h1>AI配置</h1>
+    <form action="/aiconfig" method="POST">
+        <h2>语言模型</h2>
+        <input type="text" name="llm_model" placeholder="模型名称" required>
+        <input type="text" name="llm_url" placeholder="API URL" required>
+        <input type="text" name="llm_key" placeholder="API Key" required>
+        <h2>图像生成模型</h2>
+        <input type="text" name="img_key" placeholder="API Key" required>
+        <button type="submit">设置并保存</button>
+    </form>
+
     <div class="saved-networks">
         <h2>已保存的网络</h2>
         <div id="savedList">
             <!-- 已保存的网络将在这里显示 -->
         </div>
     </div>
-
+    
     <script>
         // 页面加载时获取已保存的网络
         window.onload = function() {
@@ -69,12 +80,13 @@ const char* configPage = R"rawliteral(
         }
         
         function connectTo(index) {
-            fetch('/connect?index=' + index, { method: 'POST' })
+            fetch('/connect?saved=' + index, { method: 'POST' })
                 .then(() => {
                     alert('正在尝试连接...');
                 });
         }
     </script>
+
 </body>
 </html>
 )rawliteral";
@@ -95,6 +107,13 @@ void Network::Init() {
     ssid[i] = prefs.getString(key_ssid.c_str(), "");
     password[i] = prefs.getString(key_password.c_str(), "");
   }
+
+  // 读取ai信息
+  llm_model = prefs.getString("llm_model", "");
+  llm_url = prefs.getString("llm_url", "");
+  llm_key = prefs.getString("llm_key", "");
+  img_key = prefs.getString("img_key", "");
+  Serial.printf("llm_model: %s\n", llm_model);
 }
 
 NETWORK_STATE Network::GetConnectState() {
@@ -130,6 +149,7 @@ void Network::ApplyConfigMode() {
   this->on("/connect", HTTP_POST, HandleConnect);
   this->on("/networks", HTTP_GET, HandleNetworks);
   this->on("/delete", HTTP_POST, HandleDelete);
+  this->on("/aiconfig", HTTP_POST, HandleAiconfig);
 
   this->begin();
   connect_attempt_time = millis();
@@ -287,6 +307,42 @@ void Network::HandleConnect() {
 
   instance->send(400, "text/plain", "连接失败，请检查密码或信号强度");
 }
+
+void Network::HandleAiconfig() {
+  String new_llm_model = instance->arg("llm_model");
+  String new_llm_url = instance->arg("llm_url");
+  String new_llm_key = instance->arg("llm_key");
+  String new_img_key = instance->arg("img_key");
+  
+  // 参数验证
+  if (new_llm_model == "" || new_llm_url == "" || new_llm_key == "" || new_img_key == "") {
+    instance->send(400, "text/plain", "错误：所有字段都必须填写");
+    return;
+  }
+  
+  // 保存到Preferences
+  instance->prefs.putString("llm_model", new_llm_model);
+  instance->prefs.putString("llm_url", new_llm_url);
+  instance->prefs.putString("llm_key", new_llm_key);
+  instance->prefs.putString("img_key", new_img_key);
+  
+  // 更新实例变量
+  instance->llm_model = new_llm_model;
+  instance->llm_url = new_llm_url;
+  instance->llm_key = new_llm_key;
+  instance->img_key = new_img_key;
+  
+  Serial.printf("AI配置已更新 - 模型: %s, URL: %s\n", 
+                new_llm_model.c_str(), new_llm_url.c_str());
+  
+  // 发送成功响应
+  instance->send(200, "text/html", 
+    "<html><body>"
+    "<h1>AI配置保存成功！</h1>"
+    "<p><a href='/'>返回配置页面</a></p>"
+    "</body></html>");
+}
+
 
 void Network::SaveNetwork(String ssid, String password) {
   // 检查是否已存在该网络

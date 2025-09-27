@@ -13,11 +13,8 @@ import tempfile
 
 PORT = 8000
 
-deepseek_url = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
-deepseek_key = "2a8f37fe-394b-4a50-a9a2-d24b706083a2"
 
 image_generation_url = "https://api.siliconflow.cn/v1/images/generations"
-image_key = "sk-imjbobjscalcnhleejcrkjkmwrpjrqkzqjvskgbebdqxlbth"
 
 oss_url = "https://newbucket-345ljh.oss-cn-shenzhen.aliyuncs.com"
 
@@ -49,7 +46,7 @@ def loadfont(base64_str, size=18):
         return None
         
 class SimpleHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
-    def do_GET(self):
+    def do_POST(self):
 
         self.send_response(200)
         self.send_header('Content-type', 'text/html')
@@ -58,22 +55,14 @@ class SimpleHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         status = 0
 
         try:
+            # 读取请求体内容
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
             
-            city_url = "https://whois.pconline.com.cn/ipJson.jsp?ip=&json=true"
-
-            weather_id = "kx67cc48ut"
-            weather_key = "4c58e46fcf354a30a204c3403b37a680"
-            weather_citycode_url = "https://" + weather_id + ".re.qweatherapi.com/geo/v2/city/lookup"
-            weather_url = "https://" + weather_id + ".re.qweatherapi.com/v7/weather/now"
-
-            calendar_url = "https://www.iamwawa.cn/nongli/api"
-
-            deepseek_url = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
-            deepseek_key = "2a8f37fe-394b-4a50-a9a2-d24b706083a2"
+            # 解析JSON参数
+            params = json.loads(post_data.decode('utf-8'))
 
             image_url = "https://api.siliconflow.cn/v1/images/generations"
-            image_key = "sk-imjbobjscalcnhleejcrkjkmwrpjrqkzqjvskgbebdqxlbth"
-
             oss_url = "https://newbucket-345ljh.oss-cn-shenzhen.aliyuncs.com"
 
             # 随机生成内容
@@ -145,8 +134,8 @@ class SimpleHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             style = style.split("风格，")[1]
 
             # deepseek
-            deepseek_request = requests.post(deepseek_url, json={
-                "model": "deepseek-v3-250324",
+            deepseek_request = requests.post(params.get('llm_url'), json={
+                "model": params.get('llm_model'),
                 "messages": [
                         {
                             "role": "user",
@@ -176,7 +165,7 @@ class SimpleHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     ]
                 }, headers={
                     "Content-Type": "application/json",
-                    "Authorization": "Bearer " + deepseek_key
+                    "Authorization": params.get('llm_key')
                 })
 
             deepseek_request_json = deepseek_request.json()
@@ -200,7 +189,7 @@ class SimpleHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 "image": ref.ref_image
             }, headers={
                 "Content-Type": "application/json",
-                "Authorization": "Bearer " + image_key
+                "Authorization": params.get('img_key')
             })
 
             image_request_json = image_request.json()

@@ -34,11 +34,18 @@ private:
   static void HandleConnect();
   static void HandleNetworks();
   static void HandleDelete();
+  static void HandleAiconfig();
 
   void SaveNetwork(String ssid, String password);
   void UpdateAllNetworksInPreferences();
 
 public:
+  // ai信息
+  String llm_model;
+  String llm_url;
+  String llm_key;
+  String img_key;
+  
   Network();
   void Init();
 
