@@ -5,7 +5,9 @@ import time
 import io
 import os
 from PIL import Image, ImageDraw, ImageFont
-import ref_image
+import ref
+import base64
+import tempfile
 
 # oss_request = requests.get("https://newbucket-345ljh.oss-cn-shenzhen.aliyuncs.com/a.img")
 # print(oss_request.status_code)
@@ -13,6 +15,33 @@ import ref_image
 
 # exit(0)
 
+def loadfont(base64_str, size=18):
+    """使用临时文件方法加载ref中的base64字体,绕过所有编码问题"""
+    
+    try:
+        # 清理和解码
+        clean_b64 = base64_str.replace('\n', '').replace(' ', '')
+        font_data = base64.b64decode(clean_b64)
+        
+        # 创建临时文件
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.ttf') as temp_file:
+            temp_file.write(font_data)
+            temp_path = temp_file.name
+        
+        try:
+            # 从临时文件加载字体
+            font = ImageFont.truetype(temp_path, size=size)
+            return font
+        finally:
+            # 清理临时文件
+            try:
+                os.unlink(temp_path)
+            except:
+                pass
+                
+    except Exception as e:
+        return None
+    
 deepseek_url = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
 deepseek_key = "2a8f37fe-394b-4a50-a9a2-d24b706083a2"
 
@@ -133,13 +162,21 @@ try:
     print(response_content)
     image_prompt = response_content["prompt"]
 
+    # # oss下载字体
+    # font_path  = "https://newbucket-345ljh.oss-cn-shenzhen.aliyuncs.com/zpix.ttf"
+    # response = requests.get(font_path, verify=False)
+    # font = ImageFont.truetype(io.BytesIO(response.content), 18)
+    font = loadfont(ref.font, 18)
+    if font is None:
+        raise Exception("字体加载失败")
+
     # 生图
     image_request = requests.post(image_url, json={
         "model": "Kwai-Kolors/Kolors",
         "prompt": image_prompt,
         "image_size": "1024x1024",
         "batch_size": 1,
-        "image": ref_image.ref
+        "image": ref.ref_image
     }, headers={
         "Content-Type": "application/json",
         "Authorization": "Bearer " + image_key
@@ -182,15 +219,6 @@ try:
     final_image = Image.new('L', (300, 400))
     final_image.paste(output_image, (0, 0))
     final_image.paste(white_region, (0, 300))
-
-    # current_dir = os.path.dirname(os.path.abspath(__file__))
-    # font_path = os.path.join(current_dir, "zpix.ttf")
-    # font = ImageFont.truetype(font_path, 20)
-
-    # oss下载字体
-    font_path  = "https://newbucket-345ljh.oss-cn-shenzhen.aliyuncs.com/zpix.ttf"
-    response = requests.get(font_path, verify=False)
-    font = ImageFont.truetype(io.BytesIO(response.content), 18)
 
     # 图片下方写字
     for i in range(response_content["item"].__len__()):
