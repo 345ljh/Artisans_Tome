@@ -51,10 +51,10 @@ void InkScreen::Reset(){
 }
 
 void InkScreen::WaitBusy(){
-  // while(digitalRead(busy_pin) == 1){
-  //   delay(10);
-  // }
-  delay(200);
+  while(digitalRead(busy_pin) == 1){
+    delay(10);
+  }
+  // delay(200);
 }
 
 void InkScreen::WriteCmd(uint8_t cmd){

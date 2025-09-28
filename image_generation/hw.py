@@ -120,7 +120,6 @@ class SimpleHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 style = style_selection[era_index * 2 + np.random.randint(0, 2)]
 
 
-
             culture = np.random.choice(["江南", "岭南", "巴蜀", "中原", "西北", "东北", "西域",
                                         "燕京", "滇南", "徽州", "荆楚", "齐鲁", "关中", "青藏", 
                                         "草原", "海滨", "海岛", "客家", "闽南", "吴越", "壮乡"])
@@ -145,13 +144,16 @@ class SimpleHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                                         item：''' + typ + '''（8字以内，不要带括号），
                                         该场景下参考物品品质：草帽5/酒30/铁锄50/米10/绢200/牛1500，该物品品质为''' + price + '''
 
-                                        description：一段简短的物品描述
+                                        description：一段描述性文字，涉及其特征、功能、来历、故事等，不使用第一人称
+                                        - 长度：保证在60字符以上、75字符以下（计算标点）
                                         - 语言风格：''' + style + '''
-                                        - 长度：15-25字符
+                                        - 不要带有emoji
+
                                         prompt：用于文生图的提示词
-                                        - 必须包含：3D建模参考图，白色背景，等距视角，写实风格，物品材质+形态+颜色+细节特征，无拼接无透视变形
+                                        - 必须包含：物品材质+形态+颜色+细节特征，白色背景
                                         - 禁止出现：拼接碎片、透视变形
-                                        - 需描述物品形态/材质/颜色/典型特征
+                                        - 需描述物品形态、材质、颜色、典型特征等
+                                        - 描述物品时语言需简洁而准确，不要出现歧义，物品名称可适当换成便于文生图理解的描述
 
                                         严格按照以下示例输出json：
                                         {
@@ -176,9 +178,10 @@ class SimpleHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             print(response_content)
             image_prompt = response_content["prompt"]
 
-            font = loadfont(ref.font, 18)
-            if font is None:
+            font_large = loadfont(ref.font, 18)
+            if font_large is None:
                 raise Exception("字体加载失败")
+            font_small = loadfont(ref.font, 12)
 
             # 生图
             image_request = requests.post(image_url, json={
@@ -233,15 +236,15 @@ class SimpleHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             # 图片下方写字
             for i in range(response_content["item"].__len__()):
                 draw = ImageDraw.Draw(final_image)
-                draw.text((24 * i + 12, 300), response_content["item"][i], font=font)
+                draw.text((18 * i + 1, 301), response_content["item"][i], font=font_large)
 
             for i in range(response_content["role"].__len__()):
                 draw = ImageDraw.Draw(final_image)
-                draw.text((276 - i * 24, 300), response_content["role"][response_content["role"].__len__() - i - 1], font=font)
+                draw.text((283 - i * 18, 301), response_content["role"][response_content["role"].__len__() - i - 1], font=font_large)
 
-            for i in range(np.min([response_content["description"].__len__(), 36])):
+            for i in range(np.min([response_content["description"].__len__(), 100])):
                 draw = ImageDraw.Draw(final_image)
-                draw.text((24 * (i % 12) + 12, 324 + i // 12 * 24), response_content["description"][i], font=font)
+                draw.text((15 * (i % 20) + 1, 322 + i // 20 * 15), response_content["description"][i], font=font_small)
 
             # 图像逆时针旋转90度
             final_image = final_image.transpose(Image.ROTATE_90)
