@@ -1,19 +1,52 @@
 import numpy as np
 import json
 import requests
-import time
 import io
 import os
 from PIL import Image, ImageDraw, ImageFont
 import ref
+import hmac
+import hashlib
 import base64
+import email.utils
 import tempfile
 
-# oss_request = requests.get("https://newbucket-345ljh.oss-cn-shenzhen.aliyuncs.com/a.img")
-# print(oss_request.status_code)
-# print(oss_request.content)
+deepseek_url = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+deepseek_key = "2a8f37fe-394b-4a50-a9a2-d24b706083a2"
 
-# exit(0)
+image_url = "https://api.siliconflow.cn/v1/images/generations"
+image_key = "sk-imjbobjscalcnhleejcrkjkmwrpjrqkzqjvskgbebdqxlbth"
+
+def oss_upload(path, content):
+    bucket_name = 'newbucket-345ljh'
+    endpoint = 'oss-cn-shenzhen.aliyuncs.com'
+    method = 'PUT'
+    content_type = 'application/octet-stream'
+    date_str = email.utils.formatdate(usegmt=True)
+    access_key_id = str(os.getenv('OSS_ACCESS_KEY_ID'))
+    access_key_key = str(os.getenv('OSS_ACCESS_KEY_SECRET'))
+    canonicalized_oss_headers = ''
+
+    canonicalized_resource = f'/{bucket_name}/{path}'
+    string_to_sign = f"{method}\n\n{content_type}\n{date_str}\n{canonicalized_oss_headers}{canonicalized_resource}"
+    h = hmac.new(
+        access_key_key.encode('utf-8'), 
+        string_to_sign.encode('utf-8'), 
+        hashlib.sha1
+    )
+    signature = base64.b64encode(h.digest()).strip().decode('utf-8')
+    
+    url = f'https://{bucket_name}.{endpoint}/{path}'
+    headers = {
+        'Authorization': f'OSS {access_key_id}:{signature}',
+        'Date': date_str,
+        'Content-Type': content_type
+    }
+
+    response = requests.put(url, data=content, headers=headers)
+    print(response.text)
+    
+    return response
 
 def loadfont(base64_str, size=18):
     """使用临时文件方法加载ref中的base64字体,绕过所有编码问题"""
@@ -40,26 +73,18 @@ def loadfont(base64_str, size=18):
                 pass
                 
     except Exception as e:
-        return None
-    
-deepseek_url = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
-deepseek_key = "2a8f37fe-394b-4a50-a9a2-d24b706083a2"
+        return None   
 
-image_url = "https://api.siliconflow.cn/v1/images/generations"
-image_key = "sk-imjbobjscalcnhleejcrkjkmwrpjrqkzqjvskgbebdqxlbth"
-
-oss_url = "https://newbucket-345ljh.oss-cn-shenzhen.aliyuncs.com"
-
-try:
+def get_llm_content():
     # 随机生成内容
     age = str(np.random.randint(12, 70))
     role = np.random.choice(["农业/种植类", "工匠/工业/技术类", "养殖/畜牧类", "公共事务/法律类", "军事/安保类", 
-                            "销售/贸易类", "文化/教育类", "宗教/术士/哲学类", "医疗/护理/卫生类", "表演/娱乐类", 
-                            "交通/运输/物流类", "采集/狩猎/渔业类", "能源/矿产类", "服务业类", "新闻/媒体/出版类",
-                            "科技/研发类", "手工业/纺织类", "建筑/园林类", "食品/餐饮类", "天文/地理类", 
-                            "摊贩/店铺类", "金融/经济/保险类", "艺术/创作类", "考古/历史类", "生老病死/婚姻家庭类",
-                            "体育/运动类"
-                            ])
+"销售/贸易类", "文化/教育类", "宗教/术士/哲学类", "医疗/护理/卫生类", "表演/娱乐类", 
+"交通/运输/物流类", "采集/狩猎/渔业类", "能源/矿产类", "服务业类", "新闻/媒体/出版类",
+"科技/研发类", "手工业/纺织类", "建筑/园林类", "食品/餐饮类", "天文/地理类", 
+"摊贩/店铺类", "金融/经济/保险类", "艺术/创作类", "考古/历史类", "生老病死/婚姻家庭类",
+"体育/运动类"
+])
     if(np.random.random() < 0.8):
         era_selection = ["西周", "秦代", "汉代", "唐代", "明代", "民国", "1960年", "1980年", "2000年", "2020年", "2277年"]
         style_selection = [
@@ -105,51 +130,56 @@ try:
         era = era_selection[era_index]
         style = style_selection[era_index * 2 + np.random.randint(0, 2)]
 
+    if(np.random.random() > 0.6):
+        culture = np.random.choice(["江南", "岭南", "巴蜀", "中原", "西北", "东北", "西域",
+        "燕京", "滇南", "徽州", "荆楚", "齐鲁", "关中", "青藏", 
+        "草原", "海滨", "海岛", "客家", "闽南", "吴越", "壮乡"]) + "文化，"
+    else:
+        culture = ""
 
-
-    culture = np.random.choice(["江南", "岭南", "巴蜀", "中原", "西北", "东北", "西域",
-                                "燕京", "滇南", "徽州", "荆楚", "齐鲁", "关中", "青藏", 
-                                "草原", "海滨", "海岛", "客家", "闽南", "吴越", "壮乡"])
     price = str(int(10 ** (np.random.random() * 4)))
     if(np.random.random() < 0.7):
         typ = "生成一项与你的职业特征强相关的工具，原料，产品或物品"
     else:
         typ = "生成一项与你的职业弱相关或无关，但你可能会携带或使用的日常生活用品或个人配饰"
 
-    print(role, age, era, price, culture, style.split("风格，")[0])
+    print(role, age, era, price, culture.split("文化，")[0], style.split("风格，")[0])
     style = style.split("风格，")[1]
 
+    return "你是一位游戏中的平民阶层角色，年龄" + age + "，背景为" + culture + era + '''时代。
+    请根据以下约束生成内容：
+    role：你的具体职业（具体而简短），该职业类型属于''' + role + '''
+    item：''' + typ + '''（8字以内，不要带括号），
+    该场景下参考物品品质：草帽5/酒30/铁锄50/米10/绢200/牛1500，该物品品质为''' + price + '''
+
+    description：一段描述性文字，涉及其特征、功能、来历、故事等，不使用第一人称
+    - 长度：保证在60字符以上、75字符以下（计算标点）
+    - 语言风格：''' + style + '''
+    - 不要带有emoji
+
+    prompt：用于文生图的提示词
+    - 必须包含：物品材质+形态+颜色+细节特征，白色背景
+    - 禁止出现：拼接碎片、透视变形
+    - 需描述物品形态、材质、颜色、典型特征等
+    - 描述物品时语言需简洁而准确，不要出现歧义，物品名称可适当换成便于文生图理解的描述
+
+    严格按照以下示例输出json：
+    {
+    "role":string
+    "item": string
+    "description": string
+    "prompt"：string
+    }
+    '''
+
+try:
     # deepseek
     deepseek_request = requests.post(deepseek_url, json={
         "model": "deepseek-v3-250324",
         "messages": [
                 {
                     "role": "user",
-                    "content": "你是一位游戏中的平民阶层角色，年龄" + age + "，背景为" + culture + "文化，" + era + '''时代。
-                                请根据以下约束生成内容：
-                                role：你的具体职业（具体而简短），该职业类型属于''' + role + '''
-                                item：''' + typ + '''（8字以内，不要带括号），
-                                该场景下参考物品品质：草帽5/酒30/铁锄50/米10/绢200/牛1500，该物品品质为''' + price + '''
-
-                                description：一段描述性文字，涉及其特征、功能、来历、故事等，不使用第一人称
-                                - 长度：保证在60字符以上、75字符以下（计算标点）
-                                - 语言风格：''' + style + '''
-                                - 不要带有emoji
-
-                                prompt：用于文生图的提示词
-                                - 必须包含：物品材质+形态+颜色+细节特征，白色背景
-                                - 禁止出现：拼接碎片、透视变形
-                                - 需描述物品形态、材质、颜色、典型特征等
-                                - 描述物品时语言需简洁而准确，不要出现歧义，物品名称可适当换成便于文生图理解的描述
-
-                                严格按照以下示例输出json：
-                                {
-                                "role":string
-                                "item": string
-                                "description": string
-                                "prompt"：string
-                                }
-                                '''
+                    "content": get_llm_content()
                 }
             ]
         }, headers={
@@ -163,7 +193,7 @@ try:
     # 去掉可能的```json ```
     response_content = json.loads(response_content.replace("json", "").replace("```", ""))
     print(response_content)
-    # exit(1)
+    exit(1)
     image_prompt = response_content["prompt"]
 
     # # oss下载字体
@@ -243,47 +273,28 @@ try:
 
     # # 保存图像
     final_image.save("output.png")
-    exit(0)
+    # exit(0)
 
     final_image = np.array(final_image)
 
     # 转换为bytes, 每个byte储存8个像素
     image_bytes_black = bytearray()
-    image_bytes_yellow = bytearray()
 
     for i in range(final_image.shape[0]):
             for j in range((final_image.shape[1]) // 8):
                 byte_black = 0
-                byte_yellow = 0
                 for k in range(8):
                     if final_image[i, j * 8 + k] > 128:
                         final_image[i, j] = 255
                         byte_black |= 1 << (7 - k)
-                        byte_yellow &= ~(1 << (7 - k))
-                        # print("1", end="")
-                    # elif image[i, j * 8 + k] > 90:
-                    #     image[i, j] = 128
-                    #     byte_black &= ~(1 << (7 - k))
-                    #     byte_yellow |= 1 << (7 - k)
                     else:
                         final_image[i, j] = 0
                         byte_black |= 1 << (7 - k)
-                        byte_yellow &= ~(1 << (7 - k))
-                        # print("0", end="")
                 image_bytes_black.append(byte_black)
-                image_bytes_yellow.append(byte_yellow)
-                # print(byte)
-
-    image_bytes_black.extend(image_bytes_yellow)
 
     # 存储到oss
-    oss_request = requests.put(oss_url + "/a.img", data = image_bytes_black, headers={
-            "Content-Type": "application/octet-stream",
-    })
-    if oss_request.status_code == 200:
-        print("上传成功")
-    else:
-        print("上传失败")
+    oss_upload("a.img", image_bytes_black)
+
 except:
     # 错误原因与行数
     import sys

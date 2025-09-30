@@ -16,7 +16,9 @@ todo
 todo
 
 ## 使用说明
-todo
+### 注册API
+设备使用前需注册API，并传入相应参数。
+### 网络设置
 
 ## 结构设计
 todo
@@ -66,53 +68,71 @@ ESP32提供的Preferences库利用芯片内置的NVS，实现了数据的断电�
 也可自己搭建服务器或使用类似服务，此时需要修改ESP32中的URL。
 
 ### Prompt设计
-使用DeepSeek大语言模型的目的是，生成一段可用于生图的Prompt。由于完全使用AI生成会使得内容趋于同质化，因此部分可列举的元素使用随机生成。
-为使AI生成的图像模型符合以下特征，Prompt采用“循序渐进”的方式，先根据职业生成人物设定，再根据设定生成物品，最后根据生成生图Prompt与物品描述，且严格限制输出格式以便读取。
+使用DeepSeek大语言模型的目的是，获取一段可用于生图的Prompt。由于完全使用AI生成会使得内容趋于同质化，因此使用**随机数**产生可列举的元素。
+为使AI生成的图像模型符合以下特征，Prompt采用**循序渐进**的方式，先根据职业生成人物设定，再根据设定生成物品，最后根据生成生图Prompt与物品描述，且严格限制输出格式以便读取。
 
 ```
-"你是一位游戏中的平民阶层角色，年龄" + age + "，背景为" + culture + + "文化，" + era + '''时代。
+"你是一位游戏中的平民阶层角色，年龄" + age + "，背景为" + culture + "文化，" + era + '''时代。
 请根据以下约束生成内容：
 role：你的具体职业（具体而简短），该职业类型属于''' + role + '''
 item：''' + typ + '''（8字以内，不要带括号），
 该场景下参考物品品质：草帽5/酒30/铁锄50/米10/绢200/牛1500，该物品品质为''' + price + '''
 
-description：一段简短的物品描述，25字以内，语言风格同样符合以上时代
+description：一段描述性文字，涉及其特征、功能、来历、故事等，不使用第一人称
+- 长度：保证在60字符以上、75字符以下（计算标点）
+- 语言风格：''' + style + '''
+- 不要带有emoji
+
 prompt：用于文生图的提示词
-- 必须包含：3D建模参考图，白色背景，等距视角，写实风格，物品材质+形态+颜色+细节特征，无拼接无透视变形
+- 必须包含：物品材质+形态+颜色+细节特征，白色背景
 - 禁止出现：拼接碎片、透视变形
-- 需描述物品形态/材质/颜色/典型特征
+- 需描述物品形态、材质、颜色、典型特征等
+- 描述物品时语言需简洁而准确，不要出现歧义，物品名称可适当换成便于文生图理解的描述
 
 严格按照以下示例输出json：
 {
 "role":string
 "item": string
-"prompt"：string
 "description": string
+"prompt"：string
 }
+'''
 ```
 
-其中，随机元素已在代码中列举，用户可进行添加或修改：
+其中，随机元素已在代码中列举：
 ```
-age = str(np.random.randint(12, 70))
-role = np.random.choice([
-"农业/种植类", "工匠/工业/技术类", "养殖/畜牧类", "公共事务/法律类", "军事/安保类", 
-"销售/贸易类", "文化/教育类", "宗教/术士/哲学类", "医疗/护理/卫生类", "艺术/表演/创作类", 
-"交通/运输/物流类", "采集/狩猎/渔业类", "能源/矿产类", "服务业类",
-"科技/研发类", "手工业/纺织类", "建筑/园林类", "食品/餐饮类", "天文/地理类", "摊贩/店铺类"
-])
-if(np.random.random() < 0.8):
-    era = np.random.choice(["西周", "汉代", "唐代", "明代", "民国", 
-                            "1960年", "2000年", "2025年", "2277年"])
-else:
-    era = np.random.choice(["史前", "魔法时代", "水底世界", "末世"])
-culture = np.random.choice(["江南", "岭南", "巴蜀", "中原", "西北", "东北", "西域",
-                            "燕京", "滇南", "徽州", "荆楚", "齐鲁", "关中", "青藏", 
-                            "草原", "海滨", "海岛", "客家", "闽南", "吴越", "壮乡"])
-price = str(int(10 ** (np.random.random() * 4)))
-if(np.random.random() < 0.5):
-    typ = "生成一项与你的职业特征强相关的工具或物品。"
-else:
-    typ = "生成一项与你的职业弱相关或无关，但你可能会携带或使用的日常生活用品或个人配饰。"
+    age = str(np.random.randint(12, 70))
+    role = np.random.choice(["农业/种植类", "工匠/工业/技术类", "养殖/畜牧类", "公共事务/法律类", ...
+                            ])
+    if(np.random.random() < 0.8):
+        era_selection = ["西周", "秦代", "汉代", ...]
+        style_selection = [
+            "铭文风格，参考先秦时期甲骨文和金文，简约古拙，多使用“唯”、“其”等古语，庄重肃穆。",
+            "诗经风格，类似诗经的四言诗句，质朴口语化，带有比兴手法，多提及自然景物，生活气息浓厚。",
+            ...
+        ]
+        era_index = np.random.randint(0, len(era_selection))
+        era = era_selection[era_index]
+        style = style_selection[era_index * 2 + np.random.randint(0, 2)]
+    else:
+        era_selection = ["史前", "魔法时代", ...]
+        style_selection = [
+            "神话风格，来自史前，语言充满对自然力量的敬畏，将万物拟人化、神化，描述如创世史诗般宏大而神秘。",
+            "岩画风格，极其简练、具象，如同刻在岩壁上的符号，只描述原始社会下动作、猎物和基本需求，原始粗犷。",
+            ...
+        ]
+        era_index = np.random.randint(0, len(era_selection))
+        era = era_selection[era_index]
+        style = style_selection[era_index * 2 + np.random.randint(0, 2)]
+
+
+
+    culture = np.random.choice(["江南", "岭南", "巴蜀", "中原", ...])
+    price = str(int(10 ** (np.random.random() * 4)))
+    if(np.random.random() < 0.7):
+        typ = "生成一项与你的职业特征强相关的工具，原料，产品或物品"
+    else:
+        typ = "生成一项与你的职业弱相关或无关，但你可能会携带或使用的日常生活用品或个人配饰"
 
 ```
 返回示例如下：
@@ -125,8 +145,34 @@ else:
     损包浆', 
     'description': '祖传三代的黄铜罗盘，指针永远指向东南'}
 ```
-Propmt用于图像生成，且传入以下参考图像以统一风格：
+Propmt用于图像生成，且传入Base64形式的以下参考图像以统一风格：
 ![](2025-09-26-22-09-09.png)
+
+### API调用与接口设计
+为提高设备对不同AI的兼容性，以便在AI推陈出新时用户可选择更好的模型，本项目允许用户自定义API的URL与模型名称。
+选用的大语言模型需采用OpenAI形式API，以火山引擎的豆包^{[6]}为例，POST请求格式如下：
+```
+curl https://ark.cn-beijing.volces.com/api/v3/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ARK_API_KEY" \
+  -d '{
+    "model": "doubao-1-5-pro-32k-250115",
+    "messages": [
+        {
+            "role": "system",
+            "content": "You are a helpful assistant."
+        },
+        {
+            "role": "user",
+            "content": "Hello!"
+        }
+    ],
+    "stream": false
+  }'
+```
+其中，请求头的`Authorization`字段为API密钥，`model`字段为模型名称，与URL需作为访问FunctionGraph时的POST请求体参数传入。
+对于图像生成，各API的功能、接口存在差异，且此项目需要用到参考图像功能，因此固定采用硅基流动的`Kolors`模型（**免费**且每天可生成400张图像），仅需将API密钥传入即可。
+在FunctionGraph中，提供的参数会被解析，并在调用API时相应传入。
 
 ### 图像处理
 为使彩色图像在黑白屏幕显示，需要将图像转为灰度图，并将尺寸缩小到300\*300（原图为1:1）。此后对图片进行随机抖动处理：
@@ -134,13 +180,14 @@ Propmt用于图像生成，且传入以下参考图像以统一风格：
 完成后，在图像上添加文字，包括物品名称、拥有者职业与物品描述，字体采用Zpix。完整图像将进行旋转以适应屏幕方向，转换为15000字节的文件，对应墨水屏驱动时依次传递的120000像素（仅黑色）。
 示例如下：
 ![](2025-09-26-22-23-09.png)
-文件上传至阿里云对象存储（OS）指定路径中，云端向下位机发送生成成功信息后，下位机直接从OS下载图片。
+文件上传至阿里云对象存储（OSS）指定路径中，云端向下位机发送生成成功信息后，下位机直接从OSS下载图片。
 
 ## BOM表与费用
 
 ## 参考资料
-[1] ljh345. 【星火计划】骑行导航辅助显示［EB/OL］. OSHWHub，2024-08，https://oshwhub.com/ljh345/cycling_assistance.
-[2] YoToo DIY. 墨水屏驱动板 有示例［EB/OL］. Taobao，https://e.tb.cn/h.SVfh0rEaqfkrB5y?tk=m9hz4DtTtNR.
-[3] Waveshare. 4.2inch e-Paper Module (B) Manual［EB/OL］. Waveshare WIKI，https://www.waveshare.net/w/upload/9/97/4.2inch_e-Paper_Schematic.pdf.
-[4]Espressif. Arduino-ESP32深度睡眠模式：超低功耗设计与唤醒策略［EB/OL］. CSDN，2025-09，https://blog.csdn.net/gitblog_00419/article/details/151563516.
-[5]reiyawea. [other] 两款汉朔4.2寸墨水屏电子价签拆解与点亮，型号都是Stellar-XL ［EB/OL］. MyDigit，2021-09，https://www.mydigit.cn/forum.php?mod=viewthread&tid=274369&page=1&authorid=1055519.
+[1] 【星火计划】骑行导航辅助显示 https://oshwhub.com/ljh345/cycling_assistance.
+[2] 墨水屏驱动板 有示例 https://e.tb.cn/h.SVfh0rEaqfkrB5y?tk=m9hz4DtTtNR.
+[3] 4.2inch e-Paper Module (B) Manual https://www.waveshare.net/w/upload/9/97/4.2inch_e-Paper_Schematic.pdf.
+[4] Arduino-ESP32深度睡眠模式：超低功耗设计与唤醒策略 https://blog.csdn.net/gitblog_00419/article/details/151563516.
+[5] [other] 两款汉朔4.2寸墨水屏电子价签拆解与点亮，型号都是Stellar-X https://www.mydigit.cn/forum.php?mod=viewthread&tid=274369&page=1&authorid=1055519.
+[6]  对话(Chat) API（火山引擎）https://www.volcengine.com/docs/82379/1494384.

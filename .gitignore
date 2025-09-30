@@ -1,4 +1,6 @@
-output.png
+*.png
+*.psd
+!/documentation/*.png
 pcb/weather_backup
 pcb/*.zip
 */__pycache__
