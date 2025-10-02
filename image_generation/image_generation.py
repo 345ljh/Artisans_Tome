@@ -11,11 +11,12 @@ import base64
 import email.utils
 import tempfile
 
-deepseek_url = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
-deepseek_key = "2a8f37fe-394b-4a50-a9a2-d24b706083a2"
-
-image_url = "https://api.siliconflow.cn/v1/images/generations"
-image_key = "sk-imjbobjscalcnhleejcrkjkmwrpjrqkzqjvskgbebdqxlbth"
+params = {
+    "llm_model": "deepseek-v3-250324",
+    "llm_url": "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+    "llm_key": "Bearer 2a8f37fe-394b-4a50-a9a2-d24b706083a2",
+    "img_key": "Bearer sk-imjbobjscalcnhleejcrkjkmwrpjrqkzqjvskgbebdqxlbth"
+}
 
 def oss_upload(path, content):
     bucket_name = 'newbucket-345ljh'
@@ -48,7 +49,7 @@ def oss_upload(path, content):
     
     return response
 
-def loadfont(base64_str, size=18):
+def loadfont(base64_str, size: int=18):
     """使用临时文件方法加载ref中的base64字体,绕过所有编码问题"""
     
     try:
@@ -75,25 +76,25 @@ def loadfont(base64_str, size=18):
     except Exception as e:
         return None   
 
-def get_llm_content():
+def get_llm_content() -> str:
     # 随机生成内容
-    age = str(np.random.randint(12, 70))
+    age = np.random.randint(12, 70)
     role = np.random.choice(["农业/种植类", "工匠/工业/技术类", "养殖/畜牧类", "公共事务/法律类", "军事/安保类", 
-"销售/贸易类", "文化/教育类", "宗教/术士/哲学类", "医疗/护理/卫生类", "表演/娱乐类", 
-"交通/运输/物流类", "采集/狩猎/渔业类", "能源/矿产类", "服务业类", "新闻/媒体/出版类",
-"科技/研发类", "手工业/纺织类", "建筑/园林类", "食品/餐饮类", "天文/地理类", 
-"摊贩/店铺类", "金融/经济/保险类", "艺术/创作类", "考古/历史类", "生老病死/婚姻家庭类",
-"体育/运动类"
-])
-    if(np.random.random() < 0.8):
-        era_selection = ["西周", "秦代", "汉代", "唐代", "明代", "民国", "1960年", "1980年", "2000年", "2020年", "2277年"]
+            "销售/贸易类", "文化/教育类", "宗教/术士/哲学类", "医疗/护理/卫生类", "表演/娱乐类", 
+            "交通/运输/物流类", "采集/狩猎/渔业类", "能源/矿产类", "服务业类", "新闻/媒体/出版类",
+            "科技/研发类", "手工业/纺织类", "建筑/园林类", "食品/餐饮类", "天文/地理类", 
+            "摊贩/店铺类", "金融/经济/保险类", "艺术/创作类", "考古/历史类", "生老病死/婚姻家庭类",
+            "体育/运动类"
+            ])
+    if(np.random.random() < 0.85):
+        era_selection = ["西周", "秦代", "汉代", "唐代", "明代", "民国", "1960年", "1980年", "2000年", "2020年"]
         style_selection = [
             "铭文风格，参考先秦时期甲骨文和金文，简约古拙，多使用“唯”、“其”等古语，庄重肃穆。",
             "诗经风格，类似诗经的四言诗句，质朴口语化，带有比兴手法，多提及自然景物，生活气息浓厚。",
             "律令风格，严谨、精确、冷峻，如秦代法律条文或官方诏书，充满权威感和秩序感。",
             "耕战风格，使用秦代文言文，务实、粗犷，反映庶民与士兵的视角，用语直接有力",
-            "辞赋风格，按照汉代辞赋格式，铺陈华丽，气势恢宏，善用排比与典故，词汇丰富绚烂，充满浪漫与想象。",
-            "乐府风格，乐府诗格式，富有韵律，叙事性强，语言清新自然，情感真挚动人，带有民间故事的色彩。",
+            "辞赋风格，按照汉代辞赋格式，语言类似《洛神赋》，句式对仗，铺陈华丽，气势恢宏，善用排比与典故，词汇丰富绚烂，充满浪漫与想象。",
+            "乐府风格，乐府诗格式，如《孔雀东南飞》，富有韵律，叙事性强，语言清新自然，情感真挚动人，带有民间故事的色彩。",
             "诗豪风格，五言或七言唐诗体裁，自信奔放，意境开阔，色彩浓烈，如李白、李贺的诗歌，充满奇特的想象和磅礴气势。",
             "禅意风格，类似王维、寒山的诗句，空灵含蓄，言简意赅，追求意境深远，带有佛道哲学的韵味。",
             "话本风格，口语化、故事性强，如同明代章回小说，生动有趣，贴近市井。",
@@ -108,17 +109,17 @@ def get_llm_content():
             "全球化风格，新世纪的时尚、多元，词汇中融入英文缩写和新兴概念，节奏明快。",
             "自媒体风格，自媒体时代语言，碎片化、吸睛，善用梗、表情包化和夸张语气，追求即时传播和情绪共鸣。",
             "极简风格，冷静、精确，如同产品说明书或科技评测，注重效率、数据和用户体验。",
-            "AI逻辑风格，极度理性、精准，不带感情色彩，语句结构可能非常规，带有算法分析和数据报告的冰冷感。",
-            "意识流风格，跳跃、非线性，反映高度互联或混乱的意识状态。"
         ]
         era_index = np.random.randint(0, len(era_selection))
         era = era_selection[era_index]
         style = style_selection[era_index * 2 + np.random.randint(0, 2)]
     else:
-        era_selection = ["史前", "魔法时代", "水底世界", "末世"]
+        era_selection = ["史前", "2277年", "魔法时代", "水底世界", "末世"]
         style_selection = [
             "神话风格，来自史前，语言充满对自然力量的敬畏，将万物拟人化、神化，描述如创世史诗般宏大而神秘。",
             "岩画风格，极其简练、具象，如同刻在岩壁上的符号，只描述原始社会下动作、猎物和基本需求，原始粗犷。",
+            "AI逻辑风格，极度理性、精准，不带感情色彩，语句结构可能非常规，带有算法分析和数据报告的冰冷感。",
+            "意识流风格，跳跃、非线性，反映高度互联或混乱的意识状态。",
             "咒语风格，韵律感强，类似魔法咒语，多使用隐喻和象征，晦涩难懂但充满神秘的美感。",
             "学徒笔记风格，好奇、尝试性，夹杂着成功与失败的记录，像是魔法学徒的实践手札，生动而琐碎。",
             "潮汐风格，语言流动、空灵，节奏如波浪般起伏，多使用与水流、光影、声音相关的柔和词汇。",
@@ -133,24 +134,29 @@ def get_llm_content():
     if(np.random.random() > 0.6):
         culture = np.random.choice(["江南", "岭南", "巴蜀", "中原", "西北", "东北", "西域",
         "燕京", "滇南", "徽州", "荆楚", "齐鲁", "关中", "青藏", 
-        "草原", "海滨", "海岛", "客家", "闽南", "吴越", "壮乡"]) + "文化，"
+        "草原", "海滨", "海岛", "客家", "闽南", "吴越", "壮乡"])
     else:
         culture = ""
 
-    price = str(int(10 ** (np.random.random() * 4)))
+    price = int(10 ** (np.random.random() * 4))
     if(np.random.random() < 0.7):
         typ = "生成一项与你的职业特征强相关的工具，原料，产品或物品"
+    elif(np.random.random() < 0.5):
+        typ = "生成一项与你的职业弱相关或无关，但你可能会携带或使用的日常生活用品或个人配饰、物件"
     else:
-        typ = "生成一项与你的职业弱相关或无关，但你可能会携带或使用的日常生活用品或个人配饰"
+        typ = "生成一项你从" + np.random.choice(["父母", "朋友", "邻居", ("子女" if (age > 22) else "长辈")]) + "获得的物品"
 
-    print(role, age, era, price, culture.split("文化，")[0], style.split("风格，")[0])
+    gender = np.random.choice(["男", "女"])
+    area = np.random.choice(["城市", "乡村", "野外"])
+
+    print(role, gender, age, era, area, price, culture, style.split("风格，")[0])
     style = style.split("风格，")[1]
 
-    return "你是一位游戏中的平民阶层角色，年龄" + age + "，背景为" + culture + era + '''时代。
+    return "你是一位来自" + era + "中国，" + str(age) + "岁的" + gender + "性，从事" + role + "职业，" + (("来自" + culture) if (culture != "") else "") + '''，
     请根据以下约束生成内容：
     role：你的具体职业（具体而简短），该职业类型属于''' + role + '''
     item：''' + typ + '''（8字以内，不要带括号），
-    该场景下参考物品品质：草帽5/酒30/铁锄50/米10/绢200/牛1500，该物品品质为''' + price + '''
+    该场景下参考物品品质：草帽5/酒30/铁锄50/米10/绢200/牛1500，该物品品质为''' + str(price) + '''
 
     description：一段描述性文字，涉及其特征、功能、来历、故事等，不使用第一人称
     - 长度：保证在60字符以上、75字符以下（计算标点）
@@ -172,61 +178,56 @@ def get_llm_content():
     }
     '''
 
-try:
+def llm_request() -> dict:
     # deepseek
-    deepseek_request = requests.post(deepseek_url, json={
-        "model": "deepseek-v3-250324",
-        "messages": [
-                {
-                    "role": "user",
-                    "content": get_llm_content()
-                }
-            ]
+    try:
+        deepseek_request = requests.post(params.get('llm_url'), json={
+            "model": params.get('llm_model'),
+            "messages": [
+                    {
+                        "role": "user",
+                        "content": get_llm_content()
+                    }
+                ]
+            }, headers={
+                "Content-Type": "application/json",
+                "Authorization": params.get('llm_key')
+            })
+
+        deepseek_request_json = deepseek_request.json()
+        # image_prompt = deepseek_request_json["choices"][0]["message"]["content"]
+        response_content = deepseek_request_json["choices"][0]["message"]["content"]
+        # 去掉可能的```json ```
+        response_content = json.loads(response_content.replace("json", "").replace("```", ""))
+        return response_content
+    except Exception as err:
+        import sys
+        raise ValueError("err in llm_request: line" + str(sys.exc_info()[2].tb_lineno) + str(err))
+    
+def img_request(prompt: str) -> bytes:
+    try:
+        image_request = requests.post("https://api.siliconflow.cn/v1/images/generations", json={
+            "model": "Kwai-Kolors/Kolors",
+            "prompt": prompt,
+            "image_size": "1024x1024",
+            "batch_size": 1,
+            "image": ref.ref_image
         }, headers={
             "Content-Type": "application/json",
-            "Authorization": "Bearer " + deepseek_key
+            "Authorization": params.get('img_key')
         })
 
-    deepseek_request_json = deepseek_request.json()
-    # image_prompt = deepseek_request_json["choices"][0]["message"]["content"]
-    response_content = deepseek_request_json["choices"][0]["message"]["content"]
-    # 去掉可能的```json ```
-    response_content = json.loads(response_content.replace("json", "").replace("```", ""))
-    print(response_content)
-    exit(1)
-    image_prompt = response_content["prompt"]
+        image_request_json = image_request.json()
+        image_download_url = image_request_json["images"][0]["url"]
 
-    # # oss下载字体
-    # font_path  = "https://newbucket-345ljh.oss-cn-shenzhen.aliyuncs.com/zpix.ttf"
-    # response = requests.get(font_path, verify=False)
-    # font = ImageFont.truetype(io.BytesIO(response.content), 18)
-    font_large = loadfont(ref.font, 16)
-    if font_large is None:
-        raise Exception("字体加载失败")
-    font_small = loadfont(ref.font, 12)
+        # 下载图片
+        response = requests.get(image_download_url, verify=False)
+        return response.content
+    except Exception as err:
+        import sys
+        raise ValueError("err in img_request: line" + str(sys.exc_info()[2].tb_lineno) + str(err))
 
-    # 生图
-    image_request = requests.post(image_url, json={
-        "model": "Kwai-Kolors/Kolors",
-        "prompt": image_prompt,
-        "image_size": "1024x1024",
-        "batch_size": 1,
-        "image": ref.ref_image
-    }, headers={
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + image_key
-    })
-
-    image_request_json = image_request.json()
-    image_url = image_request_json["images"][0]["url"]
-
-    # 下载图片
-    response = requests.get(image_url, verify=False)
-    image_bytes = response.content
-
-    # 使用PIL打开图像
-    img = Image.open(io.BytesIO(image_bytes))
-
+def img_process(img: Image, content: dict, font_large: ImageFont.FreeTypeFont, font_small: ImageFont.FreeTypeFont) -> Image:
     # 转换灰度并缩放
     img = img.convert('L')
     img = img.resize((300, 300))
@@ -256,41 +257,58 @@ try:
     final_image.paste(white_region, (0, 300))
 
     # 图片下方写字
-    for i in range(response_content["item"].__len__()):
+    for i in range(content["item"].__len__()):
         draw = ImageDraw.Draw(final_image)
-        draw.text((18 * i + 1, 301), response_content["item"][i], font=font_large)
+        draw.text((20 * i + 1, 301), content["item"][i], font=font_large)
 
-    for i in range(response_content["role"].__len__()):
+    for i in range(content["role"].__len__()):
         draw = ImageDraw.Draw(final_image)
-        draw.text((283 - i * 18, 301), response_content["role"][response_content["role"].__len__() - i - 1], font=font_large)
+        draw.text((283 - i * 20, 301), content["role"][content["role"].__len__() - i - 1], font=font_large)
 
-    for i in range(np.min([response_content["description"].__len__(), 100])):
+    for i in range(np.min([content["description"].__len__(), 100])):
         draw = ImageDraw.Draw(final_image)
-        draw.text((15 * (i % 20) + 1, 322 + i // 20 * 15), response_content["description"][i], font=font_small)
+        draw.text((15 * (i % 20) + 1, 324 + i // 20 * 15), content["description"][i], font=font_small)
 
     # 图像逆时针旋转90度
     final_image = final_image.transpose(Image.ROTATE_90)
+    return final_image
 
-    # # 保存图像
-    final_image.save("output.png")
-    # exit(0)
-
-    final_image = np.array(final_image)
-
+def img_to_bytes(img: Image) -> bytes:
     # 转换为bytes, 每个byte储存8个像素
     image_bytes_black = bytearray()
 
-    for i in range(final_image.shape[0]):
-            for j in range((final_image.shape[1]) // 8):
+    img = np.array(img)
+    for i in range(img.shape[0]):
+            for j in range((img.shape[1]) // 8):
                 byte_black = 0
                 for k in range(8):
-                    if final_image[i, j * 8 + k] > 128:
-                        final_image[i, j] = 255
+                    if img[i, j * 8 + k] > 128:
+                        img[i, j * 8 + k] = 255
                         byte_black |= 1 << (7 - k)
                     else:
-                        final_image[i, j] = 0
-                        byte_black |= 1 << (7 - k)
+                        img[i, j * 8 + k] = 0
                 image_bytes_black.append(byte_black)
+    return image_bytes_black
+
+try:
+    response_content = llm_request()
+
+    font_large = loadfont(ref.font, 18)
+    if font_large is None:
+        raise Exception("字体加载失败")
+    font_small = loadfont(ref.font, 12)
+
+    image_bytes = img_request(response_content["prompt"])
+
+    # 使用PIL打开图像
+    img = Image.open(io.BytesIO(image_bytes))
+    final_image = img_process(img, response_content, font_large, font_small)
+
+    # 转换为bytes, 每个byte储存8个像素
+    image_bytes_black = img_to_bytes(final_image)
+
+    # 保存图像
+    final_image.save("output.png")
 
     # 存储到oss
     oss_upload("a.img", image_bytes_black)
