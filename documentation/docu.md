@@ -24,9 +24,10 @@ todo
 todo
 
 ## 硬件设计
+PCB厚度选用0.8mm。
 ### 电源电路
 ![](2025-09-26-19-50-27.png)
-本设备采用3.7V锂电池供电，经线性稳压器BL9110-330BPFB输出3.3V，参考前作$^{[1]}$。
+本设备采用3.7V锂电池供电，经线性稳压器BL9110-330BPFB输出3.3V，参考前作$^{[1]}$。*后续可改为DC-DC降压电路，提高电源效率。*
 电源电压检测采用CN312，其内部主要包括电压比较器与基准电压源。简而言之，RTH引脚电压高于内部基准电压（1.205V）时LBO输出低电平，FTH低于基准电压时LBO输出高电平，LBO#引脚电平相反。方便起见，设置基准电压为3.605V，且FTH与RTH电压相等，则电源电压低于3.605V时LED亮起，反之熄灭。
 
 ### 主控电路
@@ -53,6 +54,7 @@ ESP32提供的Preferences库利用芯片内置的NVS，实现了数据的断电�
 
 ### 网页访问
 此部分参考$^{[1]}$即可。
+注意，此处设置函数执行时长上限为20s，因此在晚上（0:00）到次日白天可能执行失败（具体时段未确定，推测是硅基流动服务器维护导致生成速度降低，完一次完整函数流程变为40s左右），正常情况下无影响。
 
 ### 墨水屏显示
 项目采用汉硕WFH0420CZ35墨水屏，驱动程序可完全参考WaveShare 4.2inch e-Paper Module (B)$^{[5]}$，使用SPI接口进行通信，本项目使用GPIO模拟SPI时序。
@@ -68,72 +70,79 @@ ESP32提供的Preferences库利用芯片内置的NVS，实现了数据的断电�
 也可自己搭建服务器或使用类似服务，此时需要修改ESP32中的URL。
 
 ### Prompt设计
-使用DeepSeek大语言模型的目的是，获取一段可用于生图的Prompt。由于完全使用AI生成会使得内容趋于同质化，因此使用**随机数**产生可列举的元素。
-为使AI生成的图像模型符合以下特征，Prompt采用**循序渐进**的方式，先根据职业生成人物设定，再根据设定生成物品，最后根据生成生图Prompt与物品描述，且严格限制输出格式以便读取。
+使用DeepSeek大语言模型的目的是，获取一段可用于生图的Prompt。Prompt采用**循序渐进**的方式，先根据职业生成人物设定，再根据设定生成物品，最后根据生成生图Prompt与物品描述，且严格限制输出格式以便读取。
 （该Prompt在后续可能会更新）
 
 ```
-"你是一位游戏中的平民阶层角色，年龄" + age + "，背景为" + culture + "文化，" + era + '''时代。
-请根据以下约束生成内容：
-role：你的具体职业（具体而简短），该职业类型属于''' + role + '''
-item：''' + typ + '''（8字以内，不要带括号），
-该场景下参考物品品质：草帽5/酒30/铁锄50/米10/绢200/牛1500，该物品品质为''' + price + '''
+"你是一位来自" + era + "中国，" + str(age) + "岁的" + gender + "性，从事" + role + "职业，" + (("来自" + culture) if (culture != "") else "") + '''，
+    请根据以下约束生成内容：
+    role：你的具体职业（具体而简短），该职业类型属于''' + role + '''
+    item：''' + typ + '''（8字以内，不要带括号），
+    该场景下参考物品品质：草帽5/酒30/铁锄50/米10/绢200/牛1500，该物品品质为''' + str(price) + '''
 
-description：一段描述性文字，涉及其特征、功能、来历、故事等，不使用第一人称
-- 长度：保证在60字符以上、75字符以下（计算标点）
-- 语言风格：''' + style + '''
-- 不要带有emoji
+    description：一段描述性文字，涉及其特征、功能、来历、故事等，不使用第一人称
+    - 长度：保证在60字符以上、75字符以下（计算标点）
+    - 语言风格：''' + style + '''
+    - 不要带有emoji
 
-prompt：用于文生图的提示词
-- 必须包含：物品材质+形态+颜色+细节特征，白色背景
-- 禁止出现：拼接碎片、透视变形
-- 需描述物品形态、材质、颜色、典型特征等
-- 描述物品时语言需简洁而准确，不要出现歧义，物品名称可适当换成便于文生图理解的描述
+    prompt：用于文生图的提示词
+    - 必须包含：物品材质+形态+颜色+细节特征，白色背景
+    - 禁止出现：拼接碎片、透视变形
+    - 需描述物品形态、材质、颜色、典型特征等
+    - 描述物品时语言需简洁而准确，不要出现歧义，物品名称可适当换成便于文生图理解的描述
 
-严格按照以下示例输出json：
-{
-"role":string
-"item": string
-"description": string
-"prompt"：string
-}
-'''
+    严格按照以下示例输出json：
+    {
+    "role":string
+    "item": string
+    "description": string
+    "prompt"：string
+    }
+    '''
 ```
 
-其中，随机元素已在代码中列举：
+随机元素包括人物设定（如年龄、职业类别）、背景设定（时代、语言风格）及生成设定（如物品来源），若完全通过AI生成会导致内容趋于同质化，因此直接在代码内**随机**产生：
 ```
-    age = str(np.random.randint(12, 70))
-    role = np.random.choice(["农业/种植类", "工匠/工业/技术类", "养殖/畜牧类", "公共事务/法律类", ...
-                            ])
-    if(np.random.random() < 0.8):
-        era_selection = ["西周", "秦代", "汉代", ...]
+    age = np.random.randint(12, 70)
+    role = np.random.choice(["农业/种植类", "工匠/工业/技术类", ...
+            ])
+    if(np.random.random() < 0.85):
+        era_selection = ["西周", "秦代", ...]
         style_selection = [
             "铭文风格，参考先秦时期甲骨文和金文，简约古拙，多使用“唯”、“其”等古语，庄重肃穆。",
             "诗经风格，类似诗经的四言诗句，质朴口语化，带有比兴手法，多提及自然景物，生活气息浓厚。",
-            ...
-        ]
+            ...]
         era_index = np.random.randint(0, len(era_selection))
         era = era_selection[era_index]
         style = style_selection[era_index * 2 + np.random.randint(0, 2)]
     else:
-        era_selection = ["史前", "魔法时代", ...]
+        era_selection = ["史前", ...]
         style_selection = [
             "神话风格，来自史前，语言充满对自然力量的敬畏，将万物拟人化、神化，描述如创世史诗般宏大而神秘。",
             "岩画风格，极其简练、具象，如同刻在岩壁上的符号，只描述原始社会下动作、猎物和基本需求，原始粗犷。",
-            ...
-        ]
+            ...]
         era_index = np.random.randint(0, len(era_selection))
         era = era_selection[era_index]
         style = style_selection[era_index * 2 + np.random.randint(0, 2)]
 
+    if(np.random.random() > 0.6):
+        culture = np.random.choice(["江南", "岭南", ...])
+    else:
+        culture = ""
 
-
-    culture = np.random.choice(["江南", "岭南", "巴蜀", "中原", ...])
-    price = str(int(10 ** (np.random.random() * 4)))
+    price = int(10 ** (np.random.random() * 4))
     if(np.random.random() < 0.7):
         typ = "生成一项与你的职业特征强相关的工具，原料，产品或物品"
+    elif(np.random.random() < 0.5):
+        typ = "生成一项与你的职业弱相关或无关，但你可能会携带或使用的日常生活用品或个人配饰、物件"
     else:
-        typ = "生成一项与你的职业弱相关或无关，但你可能会携带或使用的日常生活用品或个人配饰"
+        typ = "生成一项你从" + np.random.choice(["父母", ...]) + "获得的物品"
+
+    gender = np.random.choice(["男", "女"])
+    area = np.random.choice(["城市", "乡村", "野外"])
+
+    print(role, gender, age, era, area, price, culture, style.split("风格，")[0])
+    style = style.split("风格，")[1]
 
 ```
 返回示例如下：
@@ -144,7 +153,8 @@ prompt：用于文生图的提示词
     'prompt': '3D建模参考图，白色背景，等距视角，写实风格，铜制圆盘
     表面氧化泛青，中央太极阴阳鱼浮雕，外圈镌刻天干地支篆文，边缘有磨
     损包浆', 
-    'description': '祖传三代的黄铜罗盘，指针永远指向东南'}
+    'description': '祖传三代的黄铜罗盘，指针永远指向东南'
+}
 ```
 Propmt用于图像生成，且传入Base64形式的以下参考图像以统一风格：
 ![](2025-09-26-22-09-09.png)
@@ -184,7 +194,7 @@ curl https://ark.cn-beijing.volces.com/api/v3/chat/completions \
 
 ### 存储与下载
 文件上传至阿里云对象存储（OSS）指定路径中（`"a.img"`）。若用户自行使用更大的显示屏，可将内容分为多个小文件，ESP32多次调用OSS下载URL分别下载，或探索其他方法。
-~~由于FunctionGraph试图导入阿里云SDK oss2没成功~~，代码中直接使用requests库进行上传，需要手动构建签名信息。
+~~由于FunctionGraph试图导入阿里云SDK oss2没成功，~~ 直接访问Bucket对应的URL进行上传，此时需要手动构建签名信息。
 在名为`bucket_name`的Bucket中创建路径为`path`的文件，即使用`POST`方法访问`https://{bucket_name}.{endpoint}/{path}`，则请求头需满足以下形式：
 ```python
 headers = {
